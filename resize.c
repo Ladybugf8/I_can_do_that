@@ -136,6 +136,11 @@ int main(int argc, char* argv[])
     // Create outfile's file header
     bf_out.bfType = bf_in.bfType;
     
+    // These 3 variables don't change
+    bf_out.bfReserved1 = bf_in.bfReserved1;
+    bf_out.bfReserved2 = bf_in.bfReserved2;
+    bf_out.bfOffBits = bf_in.bfOffBits; 
+    
     /**
      * bfOffBits is the size of both header files (in bytes)
      * If you add that to biSizeImage (also in bytes),
@@ -144,11 +149,6 @@ int main(int argc, char* argv[])
      */
     bf_out.bfSize = bf_out.bfOffBits + bi_out.biSizeImage; 
     
-    // These 3 variables don't change
-    bf_out.bfReserved1 = bf_in.bfReserved1;
-    bf_out.bfReserved2 = bf_in.bfReserved2;
-    bf_out.bfOffBits = bf_in.bfOffBits;        
- 
     // write outfile's BITMAPFILEHEADER
     fwrite(&bf_out, sizeof(BITMAPFILEHEADER), 1, outptr);
 
