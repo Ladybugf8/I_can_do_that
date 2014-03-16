@@ -5,6 +5,9 @@
  * Problem Set 5
  *
  * Resizes a BMP per user input.
+ * Written by: Donna Enke
+ * A hearty THANK YOU!!! to stackoverflow.com/questions/3950846/isdigit-segmentation-fault
+ * for helping me figure out the cause of my segmentation fault at runtime
  */
        
 #include <stdio.h>
@@ -26,20 +29,28 @@ int main(int argc, char* argv[])
     char* infile = argv[2];
     char* outfile = argv[3];
         
-    // check that argv[1] is digits
+    // check that argv[1] is digits, convert to integer, and remember value
     int resize;
     
     if (isdigit((unsigned char) *argv[1]))
         resize = atoi(argv[1]);
     else
-        return 5;
+        return 2;
+    
+    //ensure resize is within scope    
+    if (resize < 1 || resize > 100)
+    {   
+        printf("This program is limited to resize values between 1 and 100 inclusive. \n");
+        printf("You entered %d!!! \n", resize);
+        return 3;         
+    }   
 
     // open input file 
     FILE* inptr = fopen(infile, "r");
     if (inptr == NULL)
     {
         printf("Could not open %s.\n", infile);
-        return 2;
+        return 4;
     }
 
     // open output file
@@ -48,9 +59,11 @@ int main(int argc, char* argv[])
     {
         fclose(inptr);
         fprintf(stderr, "Could not create %s.\n", outfile);
-        return 3;
+        return 5;
     }
-
+    
+    // at this point, we know the arguments are valid
+    
     // read infile's BITMAPFILEHEADER
     BITMAPFILEHEADER bf_in;
     fread(&bf_in, sizeof(BITMAPFILEHEADER), 1, inptr);
@@ -66,52 +79,75 @@ int main(int argc, char* argv[])
         fclose(outptr);
         fclose(inptr);
         fprintf(stderr, "Unsupported file format.\n");
-        return 4;
+        return 6;
     }
+    
+    // determine padding (in bytes) for scanlines of INPUT FILE
+    int in_padding =  (4 - (bi_in.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
     
     // declare output file header
     BITMAPFILEHEADER bf_out;
     
     // declare output info header
     BITMAPINFOHEADER bi_out;
-
-    // Create outfile's file header
-    bf_out.bfType = bf_in.bfType;
-    // Since you square what's left, gotta take out the file headers, then square, then put headers back in
-    bf_out.bfSize = ((bf_in.bfSize - 80) * resize * resize) + 80; 
-    bf_out.bfReserved1 = bf_in.bfReserved1;
-    bf_out.bfReserved2 = bf_in.bfReserved2;
-    bf_out.bfOffBits = bf_in.bfOffBits;
     
-    // Create outfile's info header
+    /**
+     * Create outfile's info header 
+     * Since I use some of the information calculated in the bi_header
+     * for the bf_header, I create this first. 
+     */
+ 
+    //this is just the number of bytes used by the header, it doesn't change
     bi_out.biSize = bi_in.biSize;
 
-    // This is in pixels so padding shouldn't matter
+    // This is in pixels and does not include padding 
     bi_out.biWidth = bi_in.biWidth * resize;
 
     // This is also in pixels
     bi_out.biHeight = bi_in.biHeight * resize;
     
+    // doesn't change
     bi_out.biPlanes = bi_in.biPlanes;
    
-    // Gotta remember padding here
-    if ((bi_in.biBitCount * resize) % 4 == 0)
-        bi_out.biBitCount = bi_in.biBitCount * resize;
-    else
-    {
-        int needs_padding = (bi_in.biBitCount * resize) % 4;
-        int amt_to_pad = 4-needs_padding;
-        bi_out.biBitCount = bi_in.biBitCount * resize + amt_to_pad;
-    }
+    // This is the number of bits per pixel, it doesn't change
+    bi_out.biBitCount = bi_in.biBitCount;
+
+    // doesn't change
     bi_out.biCompression = bi_in.biCompression;
-    bi_out.biSizeImage = bf_out.bfSize;
+
+    /**
+     * Gotta do math for biSizeImage
+     * This is the total size of the image
+     * including pixels AND padding
+     */
+     
+    // figure out padding for bf_out
+    int out_padding =  (4 - (bi_out.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
+     
+    // remember that biWidth is in pixels and each pixel is 3 bytes  
+    bi_out.biSizeImage = (((bi_out.biWidth * 3)+ out_padding)*bi_out.biHeight);
+    
+    // these 4 variables don't change
     bi_out.biXPelsPerMeter = bi_in.biXPelsPerMeter;
     bi_out.biYPelsPerMeter = bi_in.biXPelsPerMeter;
     bi_out.biClrUsed = bi_in.biClrUsed;
     bi_out.biClrImportant = bi_in.biClrImportant;
     
-        
-           
+    // Create outfile's file header
+    bf_out.bfType = bf_in.bfType;
+    
+    /**
+     * bfOffBits is the size of both header files (in bytes)
+     * If you add that to biSizeImage (also in bytes),
+     * you get the total size of the file (in bytes) 
+     * Oh, happy day!!!!
+     */
+    bf_out.bfSize = bf_out.bfOffBits + bi_out.biSizeImage; 
+    
+    // These 3 variables don't change
+    bf_out.bfReserved1 = bf_in.bfReserved1;
+    bf_out.bfReserved2 = bf_in.bfReserved2;
+    bf_out.bfOffBits = bf_in.bfOffBits;        
  
     // write outfile's BITMAPFILEHEADER
     fwrite(&bf_out, sizeof(BITMAPFILEHEADER), 1, outptr);
@@ -119,13 +155,7 @@ int main(int argc, char* argv[])
     // write outfile's BITMAPINFOHEADER
     fwrite(&bi_out, sizeof(BITMAPINFOHEADER), 1, outptr);
 
-    // determine padding for scanlines of INPUT FILE
-    int in_padding =  (4 - (bi_in.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
-    
-    // determine padding for scanlines of OUTPUT FILE
-    int out_padding =  (4 - (bi_out.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
-
-    // iterate over infile's scanlines -- THIS IS THE LINE
+    // iterate over infile's scanlines -- THIS IS EACH LINE IN THE IMAGE
     for (int i = 0, biHeight = abs(bi_in.biHeight); i < biHeight; i++)
     { 
         // set up buffer to remember each line's pixels
