@@ -14,27 +14,25 @@
 #include "bmp.h"
 
 int main(int argc, char* argv[])
-{
-
-    // declare a couple variables 
-    int resize = 1;
-    
+{   
     // ensure proper usage
     if (argc != 4)
     {
-        printf("Usage: ./copy infile outfile\n");
+        printf("Usage: ./resize n infile outfile\n");
         return 1;
     }
     
-    // check that argv[1] is digits
-    if (isdigit (argv[1]))
-        resize = atoi(argv[1]);
-    else
-        return 5;
-
     // remember filenames
     char* infile = argv[2];
     char* outfile = argv[3];
+        
+    // check that argv[1] is digits
+    int resize;
+    
+    if (isdigit((unsigned char) *argv[1]))
+        resize = atoi(argv[1]);
+    else
+        return 5;
 
     // open input file 
     FILE* inptr = fopen(infile, "r");
@@ -121,49 +119,43 @@ int main(int argc, char* argv[])
     // write outfile's BITMAPINFOHEADER
     fwrite(&bi_out, sizeof(BITMAPINFOHEADER), 1, outptr);
 
-    // determine padding for scanlines
-    int padding =  (4 - (bi_out.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
+    // determine padding for scanlines of INPUT FILE
+    int in_padding =  (4 - (bi_in.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
+    
+    // determine padding for scanlines of OUTPUT FILE
+    int out_padding =  (4 - (bi_out.biWidth * sizeof(RGBTRIPLE)) % 4) % 4;
 
-    // iterate over infile's scanlines
+    // iterate over infile's scanlines -- THIS IS THE LINE
     for (int i = 0, biHeight = abs(bi_in.biHeight); i < biHeight; i++)
-    {            
-        RGBTRIPLE line_storage[bi_in.biWidth - 1];
-        // iterate over pixels in scanline
+    { 
+        // set up buffer to remember each line's pixels
+        RGBTRIPLE line_storage[bi_in.biWidth];
+                   
+        // iterate over pixels in scanline -- THIS IS EACH INDIVIDUAL PIXEL
         for (int j = 0; j < bi_in.biWidth; j++)
         {
-            // temporary storage
-            RGBTRIPLE triple;
-
             // read RGB triple from infile
-            fread(&triple, sizeof(RGBTRIPLE), 1, inptr);
-
-            //temporary storage for line
-            line_storage[j] = triple;           
-            
-            // skip over padding, if any
-            fseek(inptr, padding, SEEK_CUR);
-         
+            fread(&line_storage[j], sizeof(RGBTRIPLE), 1, inptr);     
         }
-        for (int line_out = 0; line_out < resize; line_out++)
+        // skip over padding, if any, remember that padding is not included in biWidth
+        fseek(inptr, in_padding, SEEK_CUR);
+        
+        // at this point you are still inside the line read loop and have read in all the pixels
+        // each pixel has been put into an array named line_storage
+        // now it is time to write the pixels into the output file        
+        for (int line = 0; line < resize; line++)
         {
-        // repeat print for resize amount for each line
-            for (int k = 0; k < resize; k++)
+        
+            // write RGB triple to outfile RESIZE number of times
+            for (int pixel_count = 0; pixel_count < bi_in.biWidth; pixel_count++)
             {
-                // write RGB triple to outfile
-                // gotta work on this, j loses scope outside of loop
-                fwrite(&line_storage[k], sizeof(RGBTRIPLE), 1, outptr);
+                for (int rewrite = 0; rewrite < resize; rewrite++)
+                    fwrite(&line_storage[pixel_count], sizeof(RGBTRIPLE), 1, outptr);          
             }
-            
             // add padding (if necessary)
-            for (int k = 0; k < padding; k++)
+            for (int k = 0; k < out_padding; k++)
                  fputc(0x00, outptr);   
         }
-
-        
-        
-
-
-
     }
 
     // close infile
