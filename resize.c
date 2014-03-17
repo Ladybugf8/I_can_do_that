@@ -4,8 +4,11 @@
  * Computer Science 50
  * Problem Set 5
  *
- * Resizes a BMP per user input.
  * Written by: Donna Enke
+ * March 16, 2014
+ * 
+ * Resizes a BMP per user input.
+ * 
  * A hearty THANK YOU!!! to stackoverflow.com/questions/3950846/isdigit-segmentation-fault
  * for helping me figure out the cause of my segmentation fault at runtime
  */
