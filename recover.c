@@ -15,10 +15,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// a couple of global variables
+int jpg_file_sequence = 0;
+char jpg_file_name[25];
+
 // define a byte of data
 typedef uint8_t BYTE;
 
 // define functions
+char* get_output_file_name(int file_sequence);
 
 int main(void)
 {
@@ -47,13 +52,7 @@ int main(void)
     }
    
     // open output file - put this in a function
-    FILE* dst = fopen("000.jpg", "w");
-    if (dst == NULL)
-    {
-        fclose(src);
-        fprintf(stderr, "Could not create 000.jpg file.\n");
-        return 2;
-    }
+    // FILE *fopen(const char *path, const char *mode);
     
     // priming read to find the start of the first jpg   
     do
@@ -81,11 +80,21 @@ int main(void)
      * and read the first byte of a jpg. 
      * Now I print out the first first file
      * I want to create functions to:
-     *   1) create output file file name (incrementing number)
+     *   1) create output file name (incrementing number) and open the file
      *   2) write buffer to output file until new file
      *   3) close current output file
      */
-        
+    get_output_file_name(jpg_file_sequence);   
+    FILE* dst = fopen(jpg_file_name, "w");
+    if (dst == NULL)
+    {
+        fclose(src);
+        fprintf(stderr, "Could not create %s file.\n", jpg_file_name);
+        return 2;
+    }
+    //        size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+    //                     fwrite(&line_storage[pixel_count], sizeof(RGBTRIPLE), 1, outptr)
+    fwrite(&buffer, sizeof(BYTE), 512, dst);   
     // read input file until there are no more bytes
     // this works because at EOF fread returns 0 so the expression evaluates as false
     while (fread(&buffer, sizeof(BYTE), 512, src))
@@ -109,4 +118,19 @@ int main(void)
         }
     }
     return 0;
-}   
+}  
+char* get_output_file_name(int jpg_file_sequence)
+{
+    // set leading zeros
+    if (jpg_file_sequence < 10)
+        sprintf(jpg_file_name, "00%i.jpg", jpg_file_sequence);
+    else
+        sprintf(jpg_file_name, "0%i.jpg", jpg_file_sequence);
+        
+    // increment jpg_file_sequence - I can get by with that because it is global
+    jpg_file_sequence ++;    
+    
+    // print out the file name
+    printf("%s \n",jpg_file_name);
+    return jpg_file_name;     
+} 
